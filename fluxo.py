@@ -52,11 +52,11 @@ BG_VERMELHO  = "\033[41m"  # Fundo vermelho  (Shopee)
 # Largura padrão do terminal (usada para centralizar e desenhar bordas)
 LARGURA = 62
 
-# Evita que o terminal fique cheio de texto acumulado.
 def limpar_tela():
     """Limpa a tela do terminal.
     Funciona tanto no Windows (cls) quanto no Linux/Mac (clear)."""
     os.system("cls" if os.name == "nt" else "clear")
+# Evita que o terminal fique cheio de texto acumulado.
 
 
 def linha(caractere="═", cor=AZUL):
@@ -90,7 +90,7 @@ def subcabecalho(titulo, cor=AZUL):
     """
     espacos = LARGURA - len(titulo) - 6
     print(f"\n{cor}── {BOLD}{titulo}{RESET}{cor} {'─' * espacos}{RESET}")
-#Criar divisórias visuais na tela, separando o menu 
+# Criar divisórias visuais na tela, separando o menu 
 # dos resultados para a tela não ficar bagunçada.
 
 def exibir_mensagem(texto, cor=AMARELO):
