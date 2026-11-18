@@ -117,7 +117,7 @@ def exibir_erro(texto):
     """
     print(f"\n{VERMELHO}✖  {texto}{RESET}")
 # Alertar o usuário claramente, quando uma ação estiver errada.
-# Usando vermelho como sinal de parada.
+# Usando vermelho para ser um sinal de parada.
 
 
 def input_estilizado(rotulo):
