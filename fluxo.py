@@ -24,6 +24,7 @@ from datetime import datetime
 # ║  a apresentação no terminal de forma bonita e legível.      ║
 # ╚══════════════════════════════════════════════════════════════╝
 
+
 # --- Códigos de cores ANSI para o terminal ---
 # Usamos essas cores para destacar informações importantes e pintar os cards
 # de cada marketplace com a sua cor real (ex: Shopee laranja/vermelho, Mercado Livre amarelo)
@@ -51,10 +52,9 @@ BG_VERMELHO  = "\033[41m"  # Fundo vermelho  (Shopee)
 # Largura padrão do terminal (usada para centralizar e desenhar bordas)
 LARGURA = 62
 
-
+# Evita que o terminal fique cheio de texto acumulado.
 def limpar_tela():
     """Limpa a tela do terminal.
-    # Utilidade: Evita que o terminal fique cheio de texto acumulado.
     Funciona tanto no Windows (cls) quanto no Linux/Mac (clear)."""
     os.system("cls" if os.name == "nt" else "clear")
 
@@ -65,6 +65,7 @@ def linha(caractere="═", cor=AZUL):
     Exemplo: ══════════════════════════════════
     """
     print(f"{cor}{'═' * LARGURA}{RESET}")
+# Centraliza perfeitamente o texto dentro da caixa verde.
 
 
 def cabecalho(titulo, cor=VERDE):
@@ -97,6 +98,8 @@ def exibir_mensagem(texto, cor=AMARELO):
     Exemplo: ⚠  Mensagem importante aqui
     """
     print(f"\n{cor}⚠  {texto}{RESET}")
+# Dar avisos importantes para o usuário, como produtos não encontrados.
+# Usando uma cor chamativa como amarelo para sinalizar.
 
 
 def exibir_sucesso(texto):
@@ -105,7 +108,7 @@ def exibir_sucesso(texto):
     Exemplo: ✔  Operação realizada com sucesso!
     """
     print(f"\n{VERDE}✔  {texto}{RESET}")
-
+# Dar retorno positivo ao usuário, quando uma ação for correta.
 
 def exibir_erro(texto):
     """Exibe uma mensagem de erro em vermelho.
@@ -113,6 +116,8 @@ def exibir_erro(texto):
     Exemplo: ✖  Algo deu errado!
     """
     print(f"\n{VERMELHO}✖  {texto}{RESET}")
+# Alertar o usuário claramente, quando uma ação estiver errada.
+# Usando vermelho como sinal de parada.
 
 
 def input_estilizado(rotulo):
@@ -121,6 +126,9 @@ def input_estilizado(rotulo):
     Exemplo: │ Nome do produto: _
     """
     return input(f"  {CIANO}│ {BRANCO}{rotulo}: {RESET}")
+# Substitui aquele visual padrão sem graça do terminal
+# por um campo de preenchimento que guia o usuário usando cores diferentes 
+# para a pergunta e para o que ele vai digitar.
 
 
 def formatar_moeda(valor):
@@ -129,11 +137,13 @@ def formatar_moeda(valor):
     Exemplo: 49.90 → R$ 49.90
     """
     return f"R$ {valor:.2f}"
-
+# Padroniza a exibição financeira. Transforma números puros no padrão real R$ (ex:2.00).
 
 def pausar():
     """Pausa a execução e espera o usuário pressionar Enter para continuar."""
     input(f"\n{DIM}  Pressione ENTER para continuar...{RESET}")
+# Dar tempo para o usuário ler os resultados na tela 
+# antes que o programa limpe tudo e volte para o menu principal.
 
 
 # ╔══════════════════════════════════════════════════════════════╗
