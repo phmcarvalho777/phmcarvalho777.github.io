@@ -90,7 +90,8 @@ def subcabecalho(titulo, cor=AZUL):
     """
     espacos = LARGURA - len(titulo) - 6
     print(f"\n{cor}── {BOLD}{titulo}{RESET}{cor} {'─' * espacos}{RESET}")
-
+#Criar divisórias visuais na tela, separando o menu 
+# dos resultados para a tela não ficar bagunçada.
 
 def exibir_mensagem(texto, cor=AMARELO):
     """Exibe uma mensagem destacada entre colchetes.
