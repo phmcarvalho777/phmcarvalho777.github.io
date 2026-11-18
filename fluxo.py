@@ -25,6 +25,8 @@ from datetime import datetime
 # ╚══════════════════════════════════════════════════════════════╝
 
 # --- Códigos de cores ANSI para o terminal ---
+# Usamos essas cores para destacar informações importantes e pintar os cards
+# de cada marketplace com a sua cor real (ex: Shopee laranja/vermelho, Mercado Livre amarelo)
 # Cada código muda a cor do texto que vem depois dele.
 # RESET volta o texto para a cor normal.
 
@@ -52,6 +54,7 @@ LARGURA = 62
 
 def limpar_tela():
     """Limpa a tela do terminal.
+    # Utilidade: Evita que o terminal fique cheio de texto acumulado.
     Funciona tanto no Windows (cls) quanto no Linux/Mac (clear)."""
     os.system("cls" if os.name == "nt" else "clear")
 
