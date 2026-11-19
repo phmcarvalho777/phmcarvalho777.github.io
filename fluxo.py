@@ -200,7 +200,7 @@ def adicionar_produto(produto):
     lista.append(produto)
     salvar_produtos(lista)
 
-
+#excluir produtos
 def excluir_produto(indice):
     """Remove um produto da lista pelo seu índice (posição).
 
