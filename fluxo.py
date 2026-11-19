@@ -160,6 +160,7 @@ def pausar():
 # -m
 # Caminho do arquivo onde os produtos são salvos
 # O arquivo fica na mesma pasta do programa
+# São salvos em formato JSON.
 ARQUIVO_DADOS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "produtos.json")
 
 
