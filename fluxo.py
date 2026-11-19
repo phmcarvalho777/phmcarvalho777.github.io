@@ -176,7 +176,7 @@ def carregar_produtos():
             return json.load(arquivo)
     return []  # Arquivo não existe ainda, retorna lista vazia
 
-
+#salvar os produtos
 def salvar_produtos(lista):
     """Grava a lista de produtos no arquivo JSON.
 
