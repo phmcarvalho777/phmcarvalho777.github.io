@@ -188,7 +188,7 @@ def salvar_produtos(lista):
         # ensure_ascii=False permite acentos (é, ã, ç, etc.)
         json.dump(lista, arquivo, indent=2, ensure_ascii=False)
 
-
+#adicionar produtos
 def adicionar_produto(produto):
     """Adiciona um novo produto à lista e salva no arquivo.
 
