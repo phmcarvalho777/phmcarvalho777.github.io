@@ -163,7 +163,7 @@ def pausar():
 # São salvos em formato JSON.
 ARQUIVO_DADOS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "produtos.json")
 
-
+# no caso de o usuario querer ver os produtos salvos
 def carregar_produtos():
     """Lê todos os produtos salvos no arquivo JSON.
 
