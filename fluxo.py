@@ -25,6 +25,10 @@ from datetime import datetime
 # ╚══════════════════════════════════════════════════════════════╝
 
 # --- Códigos de cores ANSI para o terminal ---
+
+# --- Códigos de cores ANSI para o terminal ---
+# Usamos essas cores para destacar informações importantes e pintar os cards
+# de cada marketplace com a sua cor real (ex: Shopee laranja/vermelho, Mercado Livre amarelo)
 # Cada código muda a cor do texto que vem depois dele.
 # RESET volta o texto para a cor normal.
 
@@ -54,6 +58,7 @@ def limpar_tela():
     """Limpa a tela do terminal.
     Funciona tanto no Windows (cls) quanto no Linux/Mac (clear)."""
     os.system("cls" if os.name == "nt" else "clear")
+# Evita que o terminal fique cheio de texto acumulado.
 
 
 def linha(caractere="═", cor=AZUL):
@@ -62,6 +67,7 @@ def linha(caractere="═", cor=AZUL):
     Exemplo: ══════════════════════════════════
     """
     print(f"{cor}{'═' * LARGURA}{RESET}")
+# Centraliza perfeitamente o texto dentro da caixa verde.
 
 
 def cabecalho(titulo, cor=VERDE):
@@ -87,6 +93,8 @@ def subcabecalho(titulo, cor=AZUL):
     espacos = LARGURA - len(titulo) - 6
     print(f"\n{cor}── {BOLD}{titulo}{RESET}{cor} {'─' * espacos}{RESET}")
 
+# Criar divisórias visuais na tela, separando o menu 
+# dos resultados para a tela não ficar bagunçada.
 
 def exibir_mensagem(texto, cor=AMARELO):
     """Exibe uma mensagem destacada entre colchetes.
@@ -94,6 +102,8 @@ def exibir_mensagem(texto, cor=AMARELO):
     Exemplo: ⚠  Mensagem importante aqui
     """
     print(f"\n{cor}⚠  {texto}{RESET}")
+# Dar avisos importantes para o usuário, como produtos não encontrados.
+# Usando uma cor chamativa como amarelo para sinalizar.
 
 
 def exibir_sucesso(texto):
@@ -103,6 +113,7 @@ def exibir_sucesso(texto):
     """
     print(f"\n{VERDE}✔  {texto}{RESET}")
 
+# Dar retorno positivo ao usuário, quando uma ação for correta.
 
 def exibir_erro(texto):
     """Exibe uma mensagem de erro em vermelho.
@@ -110,6 +121,8 @@ def exibir_erro(texto):
     Exemplo: ✖  Algo deu errado!
     """
     print(f"\n{VERMELHO}✖  {texto}{RESET}")
+# Alertar o usuário claramente, quando uma ação estiver errada.
+# Usando a cor vermelha para ser um sinal de parada dentro do sistema.
 
 
 def input_estilizado(rotulo):
@@ -118,6 +131,9 @@ def input_estilizado(rotulo):
     Exemplo: │ Nome do produto: _
     """
     return input(f"  {CIANO}│ {BRANCO}{rotulo}: {RESET}")
+# Substitui aquele visual padrão sem graça do terminal
+# por um campo de preenchimento que guia o usuário usando cores diferentes 
+# para a pergunta e para o que ele vai digitar.
 
 
 def formatar_moeda(valor):
@@ -127,10 +143,13 @@ def formatar_moeda(valor):
     """
     return f"R$ {valor:.2f}"
 
+# Padroniza a exibição financeira. Transforma números puros no padrão real R$ (ex:2.00).
 
 def pausar():
     """Pausa a execução e espera o usuário pressionar Enter para continuar."""
     input(f"\n{DIM}  Pressione ENTER para continuar...{RESET}")
+# Dar tempo para o usuário ler os resultados na tela 
+# antes que o programa limpe tudo e volte para o menu principal.
 
 
 # ╔══════════════════════════════════════════════════════════════╗
@@ -138,7 +157,7 @@ def pausar():
 # ║  Funções para salvar, carregar e excluir produtos em um     ║
 # ║  arquivo JSON local (equivalente ao localStorage do site).  ║
 # ╚══════════════════════════════════════════════════════════════╝
-
+# -m
 # Caminho do arquivo onde os produtos são salvos
 # O arquivo fica na mesma pasta do programa
 ARQUIVO_DADOS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "produtos.json")
