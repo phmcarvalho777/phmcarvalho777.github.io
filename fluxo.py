@@ -54,6 +54,7 @@ BG_PRETO     = "\033[40m"  # Fundo preto     (TikTok)
 BG_AMARELO   = "\033[43m"  # Fundo amarelo   (Mercado Livre)
 BG_AZULESC   = "\033[44m"  # Fundo azul esc. (Amazon)
 BG_VERMELHO  = "\033[41m"  # Fundo vermelho  (Shopee)
+BG_VERDE     = "\033[42m"  # Fundo verde     (marketplaces cadastrados pelo usuário)
 
 # Largura padrão do terminal (usada para centralizar e desenhar bordas)
 LARGURA = 62
@@ -565,13 +566,210 @@ def atualizar_produto(indice, produto_novo):
 # ╚══════════════════════════════════════════════════════════════╝
 
 # Taxas fixas de cada marketplace (percentual sobre o valor da venda)
-# Esses valores são os mesmos usados no site original
-MARKETPLACES = {
+# Esses valores são os mesmos usados no site original.
+# Estes são os marketplaces que já vêm com o programa.
+MARKETPLACES_PADRAO = {
     "TikTok":        {"taxa_fixa": 0.06, "cor_fundo": BG_PRETO,    "cor_texto": BRANCO,  "icone": "♪"},
     "Mercado Livre":  {"taxa_fixa": 0.17, "cor_fundo": BG_AMARELO,  "cor_texto": "\033[34m", "icone": "🤝"},
     "Amazon":         {"taxa_fixa": 0.13, "cor_fundo": BG_AZULESC,  "cor_texto": BRANCO,  "icone": "📦"},
     "Shopee":         {"taxa_fixa": 0.15, "cor_fundo": BG_VERMELHO, "cor_texto": BRANCO,  "icone": "🛒"},
 }
+
+# Marketplaces em uso agora: começa com os padrão e muda quando o usuário
+# cadastra ou remove algum. É este dicionário que o resto do programa usa.
+MARKETPLACES = dict(MARKETPLACES_PADRAO)
+
+# Limites para os marketplaces cadastrados pelo usuário
+TAMANHO_MAX_NOME_MKT = 16   # cabe na coluna dos cards e das listas
+TAXA_MAX_MKT = 0.99         # taxa fixa máxima: 99%
+
+# Arquivo onde a configuração dos marketplaces fica salva (mesma pasta do programa)
+ARQUIVO_MARKETPLACES = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "marketplaces.json"
+)
+
+
+def _dados_marketplace_personalizado(taxa_fixa):
+    """Monta o dicionário de um marketplace cadastrado pelo usuário.
+
+    O usuário informa só nome e taxa, então a aparência (fundo verde e
+    ícone de loja) é a mesma para todos os marketplaces cadastrados.
+    """
+    return {
+        "taxa_fixa": taxa_fixa,
+        "cor_fundo": BG_VERDE,
+        "cor_texto": BRANCO,
+        "icone": "🏪",
+    }
+
+
+def validar_nome_marketplace(nome):
+    """Confere se o nome pode ser usado por um novo marketplace.
+
+    Retorna:
+        str: mensagem de erro, ou None se o nome é válido.
+    """
+    nome_norm = normalizar_texto(nome)
+    if not nome_norm:
+        return "O nome do marketplace é obrigatório."
+    if len(nome.strip()) > TAMANHO_MAX_NOME_MKT:
+        return f"Use no máximo {TAMANHO_MAX_NOME_MKT} caracteres no nome."
+    if nome_norm in {normalizar_texto(n) for n in MARKETPLACES}:
+        return f"O marketplace '{nome.strip()}' já existe."
+    if nome_norm in {normalizar_texto(n) for n in MARKETPLACES_PADRAO}:
+        return ("Esse nome é de um marketplace padrão que foi removido. "
+                "Use a opção de restaurar os marketplaces padrão.")
+    return None
+
+
+def validar_taxa_marketplace(taxa_fixa):
+    """Confere se a taxa fixa (decimal, ex.: 0.12 = 12%) é aceitável.
+
+    Retorna:
+        str: mensagem de erro, ou None se a taxa é válida.
+    """
+    if not _eh_numero(taxa_fixa) or not 0 <= taxa_fixa <= TAXA_MAX_MKT:
+        return "A taxa fixa deve estar entre 0% e 99%."
+    return None
+
+
+def salvar_marketplaces():
+    """Grava a configuração atual dos marketplaces no arquivo JSON.
+
+    Só guarda o que difere do padrão: os marketplaces cadastrados
+    (nome → taxa) e os nomes dos padrão que foram removidos.
+    A gravação passa por um arquivo temporário, para nunca deixar o
+    arquivo real pela metade.
+
+    Retorna:
+        bool: True se gravou, False se não foi possível gravar.
+    """
+    dados = {
+        "personalizados": {
+            nome: info["taxa_fixa"]
+            for nome, info in MARKETPLACES.items()
+            if nome not in MARKETPLACES_PADRAO
+        },
+        "removidos": [nome for nome in MARKETPLACES_PADRAO if nome not in MARKETPLACES],
+    }
+    temporario = ARQUIVO_MARKETPLACES + ".tmp"
+    try:
+        with open(temporario, "w", encoding="utf-8") as arquivo:
+            json.dump(dados, arquivo, indent=2, ensure_ascii=False)
+        os.replace(temporario, ARQUIVO_MARKETPLACES)
+        return True
+    except OSError:
+        return False
+
+
+def carregar_marketplaces():
+    """Aplica ao MARKETPLACES o que foi salvo no arquivo (se houver).
+
+    Chamada uma vez, quando o programa abre. Se o arquivo não existir,
+    o programa segue só com os marketplaces padrão. Se estiver danificado
+    ou com valores inválidos, os itens ruins são ignorados.
+    """
+    if not os.path.exists(ARQUIVO_MARKETPLACES):
+        return
+
+    try:
+        with open(ARQUIVO_MARKETPLACES, "r", encoding="utf-8") as arquivo:
+            dados = json.load(arquivo)
+    except (json.JSONDecodeError, UnicodeDecodeError, OSError):
+        dados = None
+
+    if not isinstance(dados, dict):
+        exibir_mensagem("O arquivo de marketplaces não pôde ser lido. "
+                        "Usando apenas os marketplaces padrão.")
+        pausar()
+        return
+
+    removidos = dados.get("removidos", [])
+    if isinstance(removidos, list):
+        for nome in removidos:
+            if isinstance(nome, str):
+                MARKETPLACES.pop(nome, None)
+
+    personalizados = dados.get("personalizados", {})
+    if isinstance(personalizados, dict):
+        for nome, taxa in personalizados.items():
+            nome_valido = (isinstance(nome, str) and nome.strip() != ""
+                           and len(nome) <= TAMANHO_MAX_NOME_MKT
+                           and nome not in MARKETPLACES
+                           and nome not in MARKETPLACES_PADRAO)
+            if nome_valido and validar_taxa_marketplace(taxa) is None:
+                MARKETPLACES[nome] = _dados_marketplace_personalizado(taxa)
+
+    if not MARKETPLACES:  # arquivo editado à mão e vazio: nunca ficar sem nenhum
+        MARKETPLACES.update(MARKETPLACES_PADRAO)
+
+
+def adicionar_marketplace(nome, taxa_fixa):
+    """Cadastra um novo marketplace e salva no arquivo.
+
+    Args:
+        nome (str):        Nome do marketplace (até 16 caracteres).
+        taxa_fixa (float): Taxa da plataforma em decimal (0.12 = 12%).
+
+    Retorna:
+        (bool, str): (deu certo?, mensagem para mostrar ao usuário)
+    """
+    erro = validar_nome_marketplace(nome) or validar_taxa_marketplace(taxa_fixa)
+    if erro:
+        return False, erro
+
+    nome = nome.strip()
+    MARKETPLACES[nome] = _dados_marketplace_personalizado(taxa_fixa)
+    if not salvar_marketplaces():
+        del MARKETPLACES[nome]  # desfaz: ou grava tudo, ou não muda nada
+        return False, "Não foi possível gravar o arquivo. Verifique se a pasta permite escrita."
+    return True, f"Marketplace '{nome}' cadastrado com sucesso!"
+
+
+def remover_marketplace(nome):
+    """Remove um marketplace (padrão ou cadastrado) e salva no arquivo.
+
+    Sempre sobra pelo menos um marketplace, senão não haveria o que calcular.
+
+    Retorna:
+        (bool, str): (deu certo?, mensagem para mostrar ao usuário)
+    """
+    if nome not in MARKETPLACES:
+        return False, "Marketplace não encontrado."
+    if len(MARKETPLACES) <= 1:
+        return False, "É preciso manter pelo menos um marketplace."
+
+    dados = MARKETPLACES.pop(nome)
+    if not salvar_marketplaces():
+        MARKETPLACES[nome] = dados  # desfaz a remoção
+        return False, "Não foi possível gravar o arquivo. Verifique se a pasta permite escrita."
+    return True, f"Marketplace '{nome}' removido com sucesso!"
+
+
+def restaurar_marketplaces_padrao():
+    """Traz de volta os marketplaces padrão que foram removidos.
+
+    Os cadastrados pelo usuário continuam como estão.
+
+    Retorna:
+        (bool, str): (deu certo?, mensagem para mostrar ao usuário)
+    """
+    faltando = [nome for nome in MARKETPLACES_PADRAO if nome not in MARKETPLACES]
+    if not faltando:
+        return False, "Todos os marketplaces padrão já estão ativos."
+
+    personalizados = {nome: info for nome, info in MARKETPLACES.items()
+                      if nome not in MARKETPLACES_PADRAO}
+    anterior = dict(MARKETPLACES)
+    MARKETPLACES.clear()
+    MARKETPLACES.update(MARKETPLACES_PADRAO)  # padrão primeiro, na ordem original
+    MARKETPLACES.update(personalizados)
+
+    if not salvar_marketplaces():
+        MARKETPLACES.clear()
+        MARKETPLACES.update(anterior)  # desfaz
+        return False, "Não foi possível gravar o arquivo. Verifique se a pasta permite escrita."
+    return True, f"Marketplaces restaurados: {', '.join(faltando)}."
 
 
 def calcular_preco(custo, taxa_usuario, margem, taxa_fixa_marketplace):
@@ -965,8 +1163,8 @@ def selecionar_marketplaces():
     nomes = list(MARKETPLACES.keys())
     for i, nome in enumerate(nomes, 1):
         dados = MARKETPLACES[nome]
-        taxa_pct = dados["taxa_fixa"] * 100
-        print(f"  {CIANO}[{i}]{RESET} {dados['icone']} {nome:<16} {DIM}(taxa fixa: {taxa_pct:.0f}%){RESET}")
+        taxa_fmt = formatar_percentual(dados["taxa_fixa"])  # mostra casas decimais (ex.: 12,5%)
+        print(f"  {CIANO}[{i}]{RESET} {dados['icone']} {nome:<16} {DIM}(taxa fixa: {taxa_fmt}){RESET}")
 
     print(f"  {CIANO}[A]{RESET} 📊 Todos os marketplaces")
     print()
@@ -1646,6 +1844,166 @@ def tela_termos_de_uso():
     pausar()
 
 
+# ── Gerenciamento de marketplaces (cadastrar, remover, restaurar) ──
+
+def exibir_lista_marketplaces(numerada=False):
+    """Mostra os marketplaces atuais, cada um com a sua cor de fundo.
+
+    Args:
+        numerada (bool): Se True, mostra [1], [2]... para o usuário escolher um.
+    """
+    for i, (nome, dados) in enumerate(MARKETPLACES.items(), 1):
+        numero = f"{CIANO}[{i}]{RESET} " if numerada else "    "
+        origem = "padrão" if nome in MARKETPLACES_PADRAO else "cadastrado"
+        print(f"  {numero}{dados['cor_fundo']}{dados['cor_texto']} {dados['icone']} {nome:<16} {RESET} "
+              f"{DIM}taxa fixa: {formatar_percentual(dados['taxa_fixa'])} • {origem}{RESET}")
+
+
+def tela_cadastrar_marketplace():
+    """Pede nome e taxa fixa e cadastra um novo marketplace.
+
+    ENTER em branco, em qualquer pergunta, cancela e volta ao menu.
+    """
+    limpar_tela()
+    exibir_logo()
+    cabecalho("CADASTRAR MARKETPLACE")
+
+    subcabecalho("Marketplaces atuais")
+    print()
+    exibir_lista_marketplaces()
+
+    subcabecalho("Novo marketplace")
+    print(f"\n  {DIM}ENTER em branco cancela. A taxa fixa é o que a plataforma cobra")
+    print(f"  sobre o valor da venda (ex.: 12,5).{RESET}\n")
+
+    while True:
+        nome = input_estilizado(f"Nome (até {TAMANHO_MAX_NOME_MKT} caracteres)").strip()
+        if not nome:
+            return
+        erro = validar_nome_marketplace(nome)
+        if erro is None:
+            break
+        exibir_erro(erro)
+
+    while True:
+        texto = input_estilizado("Taxa fixa da plataforma (%)")
+        if not texto.strip():
+            return
+        try:
+            taxa = converter_numero(texto) / 100  # % → decimal
+        except ValueError:
+            exibir_erro("Digite apenas números (exemplo: 12,5).")
+            continue
+        erro = validar_taxa_marketplace(taxa)
+        if erro is None:
+            break
+        exibir_erro(erro)
+
+    print()
+    if not confirmar(f"Cadastrar '{nome}' com taxa fixa de {formatar_percentual(taxa)}?"):
+        exibir_mensagem("Cadastro cancelado.")
+        pausar()
+        return
+
+    sucesso, mensagem = adicionar_marketplace(nome, taxa)
+    if sucesso:
+        exibir_sucesso(mensagem)
+    else:
+        exibir_erro(mensagem)
+    pausar()
+
+
+def tela_remover_marketplace():
+    """Mostra os marketplaces numerados e remove o escolhido (com confirmação)."""
+    limpar_tela()
+    exibir_logo()
+    cabecalho("REMOVER MARKETPLACE")
+
+    nomes = list(MARKETPLACES.keys())
+    if len(nomes) <= 1:
+        exibir_mensagem("É preciso manter pelo menos um marketplace.")
+        pausar()
+        return
+
+    subcabecalho("Escolha qual remover")
+    print()
+    exibir_lista_marketplaces(numerada=True)
+
+    while True:
+        escolha = input(f"\n  {BRANCO}Número do marketplace (ENTER volta): {RESET}").strip()
+        if not escolha:
+            return
+        if escolha.isdecimal() and 1 <= int(escolha) <= len(nomes):
+            break
+        exibir_erro("Número fora da lista. Digite um dos números mostrados.")
+
+    nome = nomes[int(escolha) - 1]
+    print(f"\n  {DIM}Os produtos já salvos continuam guardando o preço antigo deste")
+    print(f"  marketplace até serem editados. Os novos cálculos não o incluem.{RESET}\n")
+    if not confirmar(f"Remover '{nome}'?"):
+        exibir_mensagem("Remoção cancelada.")
+        pausar()
+        return
+
+    sucesso, mensagem = remover_marketplace(nome)
+    if sucesso:
+        exibir_sucesso(mensagem)
+    else:
+        exibir_erro(mensagem)
+    pausar()
+
+
+def tela_restaurar_marketplaces():
+    """Pede confirmação e traz de volta os marketplaces padrão removidos."""
+    print()
+    faltando = [nome for nome in MARKETPLACES_PADRAO if nome not in MARKETPLACES]
+    if faltando and not confirmar(f"Restaurar {', '.join(faltando)}?"):
+        exibir_mensagem("Restauração cancelada.")
+        pausar()
+        return
+
+    sucesso, mensagem = restaurar_marketplaces_padrao()
+    if sucesso:
+        exibir_sucesso(mensagem)
+    else:
+        exibir_mensagem(mensagem)
+    pausar()
+
+
+def tela_marketplaces():
+    """Menu de gerenciamento: cadastrar, remover e restaurar marketplaces."""
+    while True:
+        limpar_tela()
+        exibir_logo()
+        cabecalho("GERENCIAR MARKETPLACES")
+
+        subcabecalho("Marketplaces atuais")
+        print()
+        exibir_lista_marketplaces()
+        print()
+        print(f"  {CIANO}[1]{RESET} ➕  Cadastrar novo marketplace")
+        print(f"  {CIANO}[2]{RESET} ➖  Remover marketplace")
+        print(f"  {CIANO}[3]{RESET} ♻   Restaurar marketplaces padrão")
+        print(f"  {CIANO}[0]{RESET} ↩   Voltar ao menu principal")
+        print()
+        linha()
+        print()
+
+        opcao = input(f"  {BRANCO}Escolha uma opção: {RESET}").strip()
+
+        if opcao == "1":
+            tela_cadastrar_marketplace()
+        elif opcao == "2":
+            tela_remover_marketplace()
+        elif opcao == "3":
+            tela_restaurar_marketplaces()
+        elif opcao == "0":
+            return
+        else:
+            exibir_erro("Opção inválida! Tente novamente.")
+            pausar()
+
+
 def menu_principal():
     """Menu principal do programa. É o ponto de entrada.
 
@@ -1660,9 +2018,10 @@ def menu_principal():
         print(f"  {CIANO}[1]{RESET} 📊  Precificar produto")
         print(f"  {CIANO}[2]{RESET} 📁  Produtos salvos")
         print(f"  {CIANO}[3]{RESET} 🔎  Buscar / editar produtos")
-        print(f"  {CIANO}[4]{RESET} 💬  Enviar feedback")
-        print(f"  {CIANO}[5]{RESET} 🔒  Política de Privacidade")
-        print(f"  {CIANO}[6]{RESET} 📜  Termos de Uso")
+        print(f"  {CIANO}[4]{RESET} 🏪  Gerenciar marketplaces")
+        print(f"  {CIANO}[5]{RESET} 💬  Enviar feedback")
+        print(f"  {CIANO}[6]{RESET} 🔒  Política de Privacidade")
+        print(f"  {CIANO}[7]{RESET} 📜  Termos de Uso")
         print(f"  {CIANO}[0]{RESET} 🚪  Sair")
         print()
         linha()
@@ -1677,10 +2036,12 @@ def menu_principal():
         elif opcao == "3":
             tela_gerenciar_produtos()
         elif opcao == "4":
-            tela_feedback()
+            tela_marketplaces()
         elif opcao == "5":
-            tela_politica_privacidade()
+            tela_feedback()
         elif opcao == "6":
+            tela_politica_privacidade()
+        elif opcao == "7":
             tela_termos_de_uso()
         elif opcao == "0":
             limpar_tela()
@@ -1701,4 +2062,5 @@ def menu_principal():
 # Quando o arquivo é executado diretamente (não importado como módulo),
 # ele inicia o menu principal.
 if __name__ == "__main__":
+    carregar_marketplaces()  # aplica marketplaces cadastrados/removidos em sessões anteriores
     menu_principal()
