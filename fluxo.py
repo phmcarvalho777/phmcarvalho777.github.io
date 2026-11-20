@@ -17,7 +17,10 @@ Este programa é dividido em 4 PARTES:
 import os
 import json
 import math
+import ssl
 import unicodedata
+import urllib.error
+import urllib.request
 from datetime import datetime
 
 # ╔══════════════════════════════════════════════════════════════╗
@@ -714,6 +717,185 @@ def aplicar_alteracoes(original, rascunho, alteracoes):
     return produto
 
 
+# ── Módulo de Feedback (envio via HTTPS e notificação no Windows) ──
+
+# Link do Formspree que encaminha o feedback para o e-mail do grupo
+URL_ENVIO_FEEDBACK = os.environ.get(
+    "FLUXO_WEBHOOK_URL", "https://formspree.io/f/xqpqdajb"
+).strip()
+
+TIMEOUT_FEEDBACK = 15  # Tempo máximo de espera pela resposta do servidor
+
+# Arquivo de segurança para guardar o feedback se o computador estiver sem internet
+ARQUIVO_FEEDBACKS_PENDENTES = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "feedbacks_pendentes.json"
+)
+
+
+def notificar_windows(titulo, mensagem):
+    """Mostra o aviso de sucesso ou falha na barra de tarefas do Windows."""
+    if os.name != "nt":
+        return False
+
+    try:
+        from winotify import Notification
+        Notification(
+            app_id="FLUXO",
+            title=titulo,
+            msg=mensagem,
+            duration="short",
+        ).show()
+        return True
+    except Exception:
+        pass
+
+    try:
+        from plyer import notification
+        notification.notify(
+            title=titulo,
+            message=mensagem,
+            app_name="FLUXO",
+            timeout=5,
+        )
+        return True
+    except Exception:
+        return False
+
+
+def _salvar_feedback_pendente(registro):
+    """Guarda o feedback em JSON para o usuário não perder o que escreveu."""
+    try:
+        pendentes = []
+        if os.path.exists(ARQUIVO_FEEDBACKS_PENDENTES):
+            try:
+                with open(ARQUIVO_FEEDBACKS_PENDENTES, "r", encoding="utf-8") as arq:
+                    dados = json.load(arq)
+                if isinstance(dados, list):
+                    pendentes = dados
+            except (json.JSONDecodeError, OSError):
+                pendentes = []
+
+        pendentes.append(registro)
+        with open(ARQUIVO_FEEDBACKS_PENDENTES, "w", encoding="utf-8") as arq:
+            json.dump(pendentes, arq, indent=2, ensure_ascii=False)
+        return True
+    except OSError:
+        return False
+
+
+def _eh_webhook_discord(url):
+    """Verifica se o link configurado é de um Webhook do Discord."""
+    return "discord.com/api/webhooks" in url or "discordapp.com/api/webhooks" in url
+
+
+def _montar_dados_feedback(registro, url):
+    """Organiza os dados no formato que o Formspree ou o Discord espera."""
+    if _eh_webhook_discord(url):
+        return {
+            "username": "FLUXO Feedback",
+            "embeds": [
+                {
+                    "title": f"Novo feedback de {registro['nome']}",
+                    "description": registro["mensagem"],
+                    "color": 3066993,
+                    "fields": [
+                        {
+                            "name": "Contato",
+                            "value": registro["contato"] or "Não informado",
+                            "inline": True,
+                        },
+                        {
+                            "name": "Data",
+                            "value": registro["data"],
+                            "inline": True,
+                        },
+                    ],
+                }
+            ],
+        }
+
+    return {
+        "nome": registro["nome"],
+        "contato": registro["contato"] or "Não informado",
+        "data": registro["data"],
+        "mensagem": registro["mensagem"],
+        "_subject": f"[FLUXO] Novo feedback de {registro['nome']}",
+    }
+
+
+def _enviar_feedback_https(registro, url):
+    """Faz o envio pela porta 443 (HTTPS), evitando bloqueios de rede."""
+    payload = _montar_dados_feedback(registro, url)
+    dados_bytes = json.dumps(payload).encode("utf-8")
+
+    requisicao = urllib.request.Request(
+        url,
+        data=dados_bytes,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "FLUXO-Precificador/1.0",
+        },
+    )
+
+    contexto = ssl.create_default_context()
+    with urllib.request.urlopen(
+        requisicao, timeout=TIMEOUT_FEEDBACK, context=contexto
+    ) as resp:
+        return 200 <= resp.status < 300
+
+
+def _tratar_falha_feedback(registro, erro):
+    """Salva localmente se der erro e avisa na barra de tarefas."""
+    if _salvar_feedback_pendente(registro):
+        erro += " Seu feedback foi guardado em feedbacks_pendentes.json."
+        notificar_windows(
+            "FLUXO - Envio não concluído",
+            "Não foi possível enviar agora. O feedback foi guardado no computador.",
+        )
+    else:
+        notificar_windows(
+            "FLUXO - Falha no envio",
+            "Não foi possível enviar o feedback.",
+        )
+    return False, erro
+
+
+def enviar_feedback(mensagem, nome="Anônimo", contato=""):
+    """Envia o feedback e dispara a notificação correspondente no Windows."""
+    data = datetime.now().strftime("%d/%m/%Y %H:%M")
+    registro = {
+        "nome": nome or "Anônimo",
+        "contato": contato,
+        "data": data,
+        "mensagem": mensagem,
+    }
+
+    if not URL_ENVIO_FEEDBACK or "COLE_SUA_URL_AQUI" in URL_ENVIO_FEEDBACK:
+        erro = "URL de envio não configurada no código."
+        return _tratar_falha_feedback(registro, erro)
+
+    try:
+        enviado = _enviar_feedback_https(registro, URL_ENVIO_FEEDBACK)
+    except urllib.error.HTTPError as e:
+        erro = f"O servidor recusou o envio (HTTP {e.code}). Confira a URL."
+    except urllib.error.URLError as e:
+        erro = f"Sem conexão com a internet ou servidor indisponível ({e.reason})."
+    except OSError as e:
+        erro = f"Falha na comunicação: {e}"
+    else:
+        if enviado:
+            notificar_windows(
+                "FLUXO - Feedback enviado",
+                "Seu feedback foi enviado com sucesso. Obrigado!",
+            )
+            return True, ""
+        erro = "O servidor não confirmou o recebimento."
+
+    return _tratar_falha_feedback(registro, erro)
+
+
 # ╔══════════════════════════════════════════════════════════════╗
 # ║           PARTE 4 - INTERFACE DO USUÁRIO                    ║
 # ║  Menus, telas e navegação. Aqui é onde tudo se junta:       ║
@@ -1370,6 +1552,38 @@ def tela_gerenciar_produtos():
             pausar()
 
 
+def tela_feedback():
+    """Coleta a opinião do usuário no terminal e envia via HTTPS."""
+    limpar_tela()
+    exibir_logo()
+    cabecalho("ENVIE SEU FEEDBACK")
+    print(f"\n  {DIM}Sua opinião ajuda a melhorar o FLUXO. Nome e contato são opcionais.{RESET}")
+
+    subcabecalho("Seus Dados")
+    print()
+    nome = input_estilizado("Seu nome (opcional)").strip() or "Anônimo"
+    contato = input_estilizado("E-mail ou WhatsApp para resposta (opcional)").strip()
+
+    subcabecalho("Sua Mensagem")
+    print()
+    mensagem = ler_texto("Digite seu feedback", tamanho_max=500)
+    print()
+
+    if not confirmar("Enviar agora?"):
+        exibir_mensagem("Envio cancelado.")
+        pausar()
+        return
+
+    print(f"\n  {DIM}Enviando...{RESET}")
+    ok, erro = enviar_feedback(mensagem, nome=nome, contato=contato)
+    if ok:
+        exibir_sucesso("Feedback enviado com sucesso! Obrigado pela contribuição.")
+    else:
+        exibir_erro(erro)
+
+    pausar()
+
+
 def tela_politica_privacidade():
     """Exibe a Política de Privacidade (texto informativo)."""
     limpar_tela()
@@ -1446,8 +1660,9 @@ def menu_principal():
         print(f"  {CIANO}[1]{RESET} 📊  Precificar produto")
         print(f"  {CIANO}[2]{RESET} 📁  Produtos salvos")
         print(f"  {CIANO}[3]{RESET} 🔎  Buscar / editar produtos")
-        print(f"  {CIANO}[4]{RESET} 🔒  Política de Privacidade")
-        print(f"  {CIANO}[5]{RESET} 📜  Termos de Uso")
+        print(f"  {CIANO}[4]{RESET} 💬  Enviar feedback")
+        print(f"  {CIANO}[5]{RESET} 🔒  Política de Privacidade")
+        print(f"  {CIANO}[6]{RESET} 📜  Termos de Uso")
         print(f"  {CIANO}[0]{RESET} 🚪  Sair")
         print()
         linha()
@@ -1462,8 +1677,10 @@ def menu_principal():
         elif opcao == "3":
             tela_gerenciar_produtos()
         elif opcao == "4":
-            tela_politica_privacidade()
+            tela_feedback()
         elif opcao == "5":
+            tela_politica_privacidade()
+        elif opcao == "6":
             tela_termos_de_uso()
         elif opcao == "0":
             limpar_tela()
