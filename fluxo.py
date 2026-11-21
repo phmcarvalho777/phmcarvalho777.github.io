@@ -46,11 +46,11 @@ DIM     = "\033[2m"       # Texto esmaecido
 
 # Cores do texto
 VERDE   = "\033[92m"      # Verde claro (cor principal do FLUXO)
-AZUL    = "\033[94m"      # Azul claro
+AZUL    = "\033[94m"      # Azul mais claro
 AMARELO = "\033[93m"      # Amarelo
 VERMELHO= "\033[91m"      # Vermelho
 BRANCO  = "\033[97m"      # Branco
-CIANO   = "\033[96m"      # Ciano/Turquesa
+CIANO   = "\033[96m"      # Ciano
 
 # Cores de fundo (usadas nos cards de marketplace)
 BG_PRETO     = "\033[40m"  # Fundo preto     (TikTok)
@@ -2821,7 +2821,7 @@ def menu_principal():
 
 # ── Ponto de entrada do programa ──
 # Quando o arquivo é executado diretamente (não importado como módulo),
-# ele inicia o menu principal.
+# Inicia o menu principal.
 if __name__ == "__main__":
     carregar_marketplaces()  # aplica marketplaces cadastrados/removidos em sessões anteriores
     try:
