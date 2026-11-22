@@ -1823,10 +1823,17 @@ def tela_produtos_salvos():
 
     if escolha.isdigit() and int(escolha) > 0:
         indice = int(escolha) - 1
-        if excluir_produto(indice):
-            exibir_sucesso("Produto excluído com sucesso!")
-        else:
+        if indice >= len(produtos):
             exibir_erro("Número inválido.")
+        elif confirmar(f"Excluir '{produtos[indice]['nome']}' definitivamente?"):
+            if excluir_produto(indice):
+                exibir_sucesso("Produto excluído com sucesso!")
+            else:
+                exibir_erro("Não foi possível excluir o produto.")
+        else:
+            exibir_mensagem("Exclusão cancelada.")
+    elif escolha != "0":
+        exibir_erro("Opção inválida.")
 
     pausar()
 
