@@ -411,5 +411,3 @@ Os documentos do projeto ficam na pasta [`docs/`](docs/):
 * **Orientação:** Professor Vinicius
 
 * **Ano:** 2026
-
-Projeto acadêmico desenvolvido para fins educacionais.
