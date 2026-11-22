@@ -406,7 +406,7 @@ Os documentos do projeto ficam na pasta [`docs/`](docs/):
 
 * **Curso:** Análise e Desenvolvimento de Sistemas, 2º período
 
-* Alunos: Aquiles Santos Almeida, Emerson Conceição Silva, Kaleo Davi Lopes Assunção, Pedro Henrique Miranda Carvalho**.** 
+* Alunos: Aquiles Santos Almeida, Emerson Conceição Silva, Kaleo Davi Lopes Assunção, Pedro Henrique Miranda Carvalho. 
 
 * **Orientação:** Professor Vinicius
 
